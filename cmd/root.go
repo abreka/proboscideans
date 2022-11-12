@@ -24,6 +24,7 @@ func init() {
 	rootCmd.AddCommand(registerCmd)
 	rootCmd.AddCommand(streamInstanceCmd)
 	rootCmd.AddCommand(streamDistributedCmd)
+	rootCmd.AddCommand(whoisCmd)
 
 	// Add flags
 	initRegisterCmd()
