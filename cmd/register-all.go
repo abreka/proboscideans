@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"os"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -19,6 +20,8 @@ var registerAllCmd = &cobra.Command{
 	Short: "register all instances by crawling peers breadth-first",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		// TODO: cleanup refactor
+		// This code is ugly as shit
 		ds, err := accounts.NewDirectoryStorage(args[0])
 		if err != nil {
 			cmd.PrintErrf("Unable to create directory storage: %s\n", err)
@@ -87,33 +90,53 @@ var registerAllCmd = &cobra.Command{
 			}
 
 			// Register all the peers we found.
+
+			var wg sync.WaitGroup
+			wg.Add(len(frontier))
+			queue := make(chan string, len(frontier))
 			for server := range frontier {
-				cmd.Printf("Registering %s\n", server)
+				queue <- server
+			}
+			close(queue)
 
-				func() {
-					ctx, timeout := context.WithTimeout(context.Background(), 60*time.Second)
-					defer timeout()
+			maxConcurrent := 16
+			if len(frontier) < maxConcurrent {
+				maxConcurrent = len(frontier)
+			}
 
-					app, err := mastodon.RegisterApp(ctx, &mastodon.AppConfig{
-						Server:     server,
-						ClientName: clientName,
-						Scopes:     requiredAppScopes,
-						Website:    appWebsite,
-					})
+			for i := 0; i < maxConcurrent; i++ {
+				go func() {
+					defer wg.Done()
 
-					if err != nil {
-						cmd.PrintErrf("Unable to register app: %s\n", err)
-						errored[server] = true
-						return
-					}
+					for server := range queue {
+						func(server string) {
+							cmd.Printf("Registering %s\n", server)
+							ctx, timeout := context.WithTimeout(context.Background(), 60*time.Second)
+							defer timeout()
 
-					_, err = ds.WriteApp(server, app)
-					if err != nil {
-						cmd.PrintErrf("Unable to write app: %s\n", err)
-						errored[server] = true
+							app, err := mastodon.RegisterApp(ctx, &mastodon.AppConfig{
+								Server:     server,
+								ClientName: clientName,
+								Scopes:     requiredAppScopes,
+								Website:    appWebsite,
+							})
+
+							if err != nil {
+								cmd.PrintErrf("Unable to register app: %s\n", err)
+								errored[server] = true
+								return
+							}
+
+							_, err = ds.WriteApp(server, app)
+							if err != nil {
+								cmd.PrintErrf("Unable to write app: %s\n", err)
+								errored[server] = true
+							}
+						}(server)
 					}
 				}()
 			}
+			wg.Wait()
 
 			// Clear the frontier.
 			frontier = make(map[string]bool)
