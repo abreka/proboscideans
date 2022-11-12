@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"github.com/abreka/proboscideans/accounts"
-	"github.com/mattn/go-mastodon"
 	"github.com/spf13/cobra"
 	"os"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -16,9 +16,9 @@ func initRegisterAllCmd() {
 }
 
 var registerAllCmd = &cobra.Command{
-	Use:   "register-all credentials-dir",
+	Use:   "register-all credentials-dir snapshot_path",
 	Short: "register all instances by crawling peers breadth-first",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		// TODO: cleanup refactor
 		// This code is ugly as shit
@@ -41,46 +41,66 @@ var registerAllCmd = &cobra.Command{
 		visited := make(map[string]bool)
 		frontier := make(map[string]bool)
 		errored := make(map[string]bool)
+		concurrency := 128
+
+		snapshotPath := args[1]
+		if snapshotPath == "now.jsonl" {
+			snapshotPath = fmt.Sprintf("%d.jsonl", time.Now().Unix())
+		}
+
+		snapshotFp, err := os.OpenFile(snapshotPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			cmd.PrintErrf("Unable to open snapshot file: %s\n", err)
+			os.Exit(1)
+		}
 
 		for {
-			// Get the peers for every account we have that has not already been visited.
-			for server, app := range existing {
-				cmd.Printf("Getting peers for %s\n", server)
-				if visited[server] || errored[server] {
+			skip := make(map[string]bool)
+			for server := range errored {
+				skip[server] = true
+			}
+			for server := range visited {
+				skip[server] = true
+			}
+
+			peersCh := accounts.GetAllPeers(
+				context.Background(), existing, concurrency, visited, 10*time.Second,
+			)
+
+			for peer := range peersCh {
+				visited[peer.Server] = true
+
+				if peer.Err != nil {
+					cmd.PrintErrf("Error getting peers for %s: %s\n", peer.Server, peer.Err)
+					errored[peer.Server] = true
 					continue
 				}
 
-				func() {
-					// TODO: error handling
-					ctx, timeout := context.WithTimeout(context.Background(), 60*time.Second)
-					defer timeout()
+				cmd.Printf("Got %d peers for %s\n", len(peer.Peers), peer.Server)
 
-					client := mastodon.NewClient(&mastodon.Config{
-						Server:       server,
-						ClientID:     app.ClientID,
-						ClientSecret: app.ClientSecret,
-					})
+				// Write to snapshot file
+				b, err := json.Marshal(peer)
+				if err != nil {
+					cmd.PrintErrf("Error marshalling peer: %s\n", err)
+					os.Exit(1)
+				}
+				b = append(b, []byte("\n")...)
+				_, err = snapshotFp.Write(b)
+				if err != nil {
+					cmd.PrintErrf("Error writing to snapshot file: %s\n", err)
+					os.Exit(1)
+				}
 
-					peers, err := client.GetInstancePeers(ctx)
-					if err != nil {
-						errored[server] = true
-						cmd.PrintErrf("Unable to get peers for %s: %s\n", server, err)
-						return
+				for _, peer := range peer.Peers {
+					// Add https prefix if missing
+					if !strings.HasPrefix(peer, "https://") {
+						peer = "https://" + peer
 					}
 
-					for _, peer := range peers {
-						// Add https prefix if missing
-						if !strings.HasPrefix(peer, "https://") {
-							peer = "https://" + peer
-						}
-
-						if existing[peer] == nil && !errored[peer] {
-							frontier[peer] = true
-						}
+					if existing[peer] == nil && !errored[peer] {
+						frontier[peer] = true
 					}
-				}()
-
-				visited[server] = true
+				}
 			}
 
 			// If the frontier is empty, we're done.
@@ -89,54 +109,37 @@ var registerAllCmd = &cobra.Command{
 				break
 			}
 
-			// Register all the peers we found.
+			cmd.Printf("Visiting %d new peers\n", len(frontier))
 
-			var wg sync.WaitGroup
-			wg.Add(len(frontier))
-			queue := make(chan string, len(frontier))
-			for server := range frontier {
-				queue <- server
+			registrations := accounts.RegisterAll(
+				context.Background(),
+				frontier,
+				concurrency,
+				10*time.Second,
+				clientName,
+				requiredAppScopes,
+				appWebsite,
+			)
+
+			nAttemped := 0
+			for registration := range registrations {
+				nAttemped++
+				if registration.Err != nil {
+					cmd.PrintErrf("Error registering %s: %s\n", registration.Server, registration.Err)
+					errored[registration.Server] = true
+					continue
+				}
+
+				_, err = ds.WriteApp(registration.Server, registration.App)
+				if err != nil {
+					cmd.PrintErrf("Unable to write app: %s\n", err)
+					errored[registration.Server] = true
+				}
+
+				cmd.Printf("Registered %s\n", registration.Server)
 			}
-			close(queue)
 
-			maxConcurrent := 16
-			if len(frontier) < maxConcurrent {
-				maxConcurrent = len(frontier)
-			}
-
-			for i := 0; i < maxConcurrent; i++ {
-				go func() {
-					defer wg.Done()
-
-					for server := range queue {
-						func(server string) {
-							cmd.Printf("Registering %s\n", server)
-							ctx, timeout := context.WithTimeout(context.Background(), 60*time.Second)
-							defer timeout()
-
-							app, err := mastodon.RegisterApp(ctx, &mastodon.AppConfig{
-								Server:     server,
-								ClientName: clientName,
-								Scopes:     requiredAppScopes,
-								Website:    appWebsite,
-							})
-
-							if err != nil {
-								cmd.PrintErrf("Unable to register app: %s\n", err)
-								errored[server] = true
-								return
-							}
-
-							_, err = ds.WriteApp(server, app)
-							if err != nil {
-								cmd.PrintErrf("Unable to write app: %s\n", err)
-								errored[server] = true
-							}
-						}(server)
-					}
-				}()
-			}
-			wg.Wait()
+			cmd.Printf("Attempted to register %d peers\n", nAttemped)
 
 			// Clear the frontier.
 			frontier = make(map[string]bool)
