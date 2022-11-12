@@ -21,7 +21,7 @@ func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	// Add subcommands
-	rootCmd.AddCommand(registerInstance)
+	rootCmd.AddCommand(registerInstanceCmd)
 	rootCmd.AddCommand(registerAllCmd)
 	rootCmd.AddCommand(streamInstanceCmd)
 	rootCmd.AddCommand(streamDistributedCmd)
@@ -29,6 +29,7 @@ func init() {
 
 	// Add flags
 	initRegisterCmd()
+	initRegisterAllCmd()
 }
 
 // Execute runs the CLI app

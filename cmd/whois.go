@@ -24,13 +24,13 @@ var whoisCmd = &cobra.Command{
 
 		info, err := client.GetInstance(ctx)
 		if err != nil {
-			cmd.PrintErrf("Unable to get instance info: %s", err)
+			cmd.PrintErrf("Unable to get instance info: %s\n", err)
 			os.Exit(1)
 		}
 
 		asJson, err := json.MarshalIndent(info, "", "  ")
 		if err != nil {
-			cmd.PrintErrf("Unable to marshal instance info: %s", err)
+			cmd.PrintErrf("Unable to marshal instance info: %s\n", err)
 			os.Exit(1)
 		}
 

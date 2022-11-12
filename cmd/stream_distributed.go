@@ -18,13 +18,13 @@ var streamDistributedCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ds, err := accounts.NewDirectoryStorage(args[0])
 		if err != nil {
-			cmd.PrintErrf("Unable to create directory storage: %s", err)
+			cmd.PrintErrf("Unable to create directory storage: %s\n", err)
 			os.Exit(1)
 		}
 
 		mux, err := streaming.NewMuxFromCredentialsDir(ds)
 		if err != nil {
-			cmd.PrintErrf("Unable to create mux: %s", err)
+			cmd.PrintErrf("Unable to create mux: %s\n", err)
 			os.Exit(1)
 		}
 
@@ -38,14 +38,14 @@ var streamDistributedCmd = &cobra.Command{
 				case serverError := <-errs:
 					errJson, err := json.Marshal(serverError)
 					if err != nil {
-						cmd.PrintErrf("Unable to marshal error: %s", err)
+						cmd.PrintErrf("Unable to marshal error: %s\n", err)
 						os.Exit(1)
 					}
 					cmd.Println(string(errJson))
 				case event := <-events:
 					eventJson, err := json.Marshal(event)
 					if err != nil {
-						cmd.PrintErrf("Unable to marshal event: %s", err)
+						cmd.PrintErrf("Unable to marshal event: %s\n", err)
 						os.Exit(1)
 					}
 					cmd.Println(string(eventJson))

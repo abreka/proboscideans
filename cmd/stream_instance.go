@@ -23,19 +23,19 @@ var streamInstanceCmd = &cobra.Command{
 
 		ds, err := accounts.NewDirectoryStorage(dirPath)
 		if err != nil {
-			cmd.PrintErrf("Unable to create directory storage: %s", err)
+			cmd.PrintErrf("Unable to create directory storage: %s\n", err)
 			os.Exit(1)
 		}
 
 		app, err := ds.GetByServerName(serverName)
 		if err != nil {
-			cmd.PrintErrf("Unable to get app: %s", err)
+			cmd.PrintErrf("Unable to get app: %s\n", err)
 			os.Exit(1)
 		}
 
 		server, err := streaming.ServerURIFromAppAuthURI(app)
 		if err != nil {
-			cmd.PrintErrf("Unable to get server from app: %s", err)
+			cmd.PrintErrf("Unable to get server from app: %s\n", err)
 			os.Exit(1)
 		}
 
@@ -52,7 +52,7 @@ var streamInstanceCmd = &cobra.Command{
 		// However, it definitely seems much more polite.
 		events, err := client.StreamingPublic(ctx, true)
 		if err != nil {
-			cmd.PrintErrf("Unable to stream: %s", err)
+			cmd.PrintErrf("Unable to stream: %s\n", err)
 			os.Exit(1)
 		}
 
@@ -61,7 +61,7 @@ var streamInstanceCmd = &cobra.Command{
 				// Marshal as json and print it
 				jsonEvent, err := json.Marshal(event)
 				if err != nil {
-					cmd.PrintErrf("Unable to marshal event: %s", err)
+					cmd.PrintErrf("Unable to marshal event: %s\n", err)
 					os.Exit(1)
 				}
 				cmd.Println(string(jsonEvent))

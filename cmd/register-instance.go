@@ -19,14 +19,18 @@ var (
 )
 
 func initRegisterCmd() {
-	registerInstance.Flags().StringVar(&server, "server", "https://mastodon.social", "The server to register the app with")
-	registerInstance.Flags().StringVar(&clientName, "client-name", "proboscideans", "The name of the app")
-	registerInstance.Flags().StringVar(&requiredAppScopes, "scopes", "read", "The scopes required by the app")
-	registerInstance.Flags().StringVar(&appWebsite, "website", "https://twitter.com/generativist", "The website of the app")
+	initRegisterFlags(registerInstanceCmd)
 }
 
-// registerInstance represents the register command
-var registerInstance = &cobra.Command{
+func initRegisterFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&server, "server", "https://mastodon.social", "The server to register the app with")
+	cmd.Flags().StringVar(&clientName, "client-name", "proboscideans", "The name of the app")
+	cmd.Flags().StringVar(&requiredAppScopes, "scopes", "read", "The scopes required by the app")
+	cmd.Flags().StringVar(&appWebsite, "website", "https://twitter.com/generativist", "The website of the app")
+}
+
+// registerInstanceCmd represents the register command
+var registerInstanceCmd = &cobra.Command{
 	Use:   "register-instance [output-dir]",
 	Short: "register a new app with an instance",
 	Args:  cobra.MaximumNArgs(1),
@@ -37,7 +41,7 @@ var registerInstance = &cobra.Command{
 		if len(args) == 1 {
 			ds, err = accounts.NewDirectoryStorage(args[0])
 			if err != nil {
-				cmd.PrintErrf("Unable to create directory storage: %s", err)
+				cmd.PrintErrf("Unable to create directory storage: %s\n", err)
 				os.Exit(1)
 			}
 		}
@@ -50,13 +54,13 @@ var registerInstance = &cobra.Command{
 		})
 
 		if err != nil {
-			cmd.PrintErrf("Unable to register app: %s", err)
+			cmd.PrintErrf("Unable to register app: %s\n", err)
 			os.Exit(1)
 		}
 
 		asJson, err := json.MarshalIndent(app, "", "  ")
 		if err != nil {
-			cmd.PrintErrf("Unable to marshal app: %s", err)
+			cmd.PrintErrf("Unable to marshal app: %s\n", err)
 			os.Exit(1)
 		}
 
@@ -65,11 +69,11 @@ var registerInstance = &cobra.Command{
 		} else {
 			outputPath, err := ds.WriteApp(server, app)
 			if err != nil {
-				cmd.PrintErrf("Unable to write app: %s", err)
+				cmd.PrintErrf("Unable to write app: %s\n", err)
 				os.Exit(1)
 			}
 
-			cmd.Printf("Wrote app to %s", outputPath)
+			cmd.Printf("Wrote app to %s\n", outputPath)
 		}
 	},
 }
