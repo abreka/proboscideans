@@ -3,9 +3,10 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"os"
+
 	"github.com/mattn/go-mastodon"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 var (

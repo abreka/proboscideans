@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"log"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
@@ -21,6 +22,7 @@ func init() {
 
 	// Add subcommands
 	rootCmd.AddCommand(registerCmd)
+	rootCmd.AddCommand(streamCmd)
 
 	// Add flags
 	initRegisterCmd()
