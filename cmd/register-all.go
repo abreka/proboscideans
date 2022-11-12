@@ -46,7 +46,7 @@ var registerAllCmd = &cobra.Command{
 			// Get the peers for every account we have that has not already been visited.
 			for server, app := range existing {
 				cmd.Printf("Getting peers for %s\n", server)
-				if visited[server] {
+				if visited[server] || errored[server] {
 					continue
 				}
 
