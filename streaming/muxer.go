@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
+
+	"github.com/abreka/proboscideans/accounts"
 
 	"github.com/mattn/go-mastodon"
 )
@@ -16,28 +17,14 @@ type Mux struct {
 	clients map[string]*mastodon.Client
 }
 
-func NewMuxFromCredentialsDir(dir string) (*Mux, error) {
-	credPaths, err := filepath.Glob(filepath.Join(dir, "*.json"))
+func NewMuxFromCredentialsDir(accountStore accounts.Store) (*Mux, error) {
+	apps, err := accountStore.GetAll()
 	if err != nil {
-		return nil, fmt.Errorf("unable to find credentials file paths: %v", err)
-	}
-
-	apps := make(map[string]*mastodon.Application)
-	for _, credPath := range credPaths {
-		app, err := LoadAppFromJSON(credPath)
-		if err != nil {
-			return nil, fmt.Errorf("unable to load app from %s: %v", credPath, err)
-		}
-		apps[app.ClientID] = app
+		return nil, err
 	}
 
 	clients := make(map[string]*mastodon.Client)
-	for _, app := range apps {
-		server, err := ServerURIFromAppAuthURI(app)
-		if err != nil {
-			return nil, fmt.Errorf("unable to get server from app: %v", err)
-		}
-
+	for server, app := range apps {
 		clients[server] = mastodon.NewClient(&mastodon.Config{
 			Server:       server,
 			ClientID:     app.ClientID,

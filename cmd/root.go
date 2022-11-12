@@ -21,7 +21,8 @@ func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	// Add subcommands
-	rootCmd.AddCommand(registerCmd)
+	rootCmd.AddCommand(registerInstance)
+	rootCmd.AddCommand(registerAllCmd)
 	rootCmd.AddCommand(streamInstanceCmd)
 	rootCmd.AddCommand(streamDistributedCmd)
 	rootCmd.AddCommand(whoisCmd)

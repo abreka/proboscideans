@@ -6,19 +6,30 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/abreka/proboscideans/accounts"
+
 	"github.com/abreka/proboscideans/streaming"
 	"github.com/mattn/go-mastodon"
 	"github.com/spf13/cobra"
 )
 
 var streamInstanceCmd = &cobra.Command{
-	Use:   "stream-instance [credentials-path]",
+	Use:   "stream-instance directory-storage server-name",
 	Short: "stream events from a single instance",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		app, err := streaming.LoadAppFromJSON(args[0])
+		dirPath := args[0]
+		serverName := args[1]
+
+		ds, err := accounts.NewDirectoryStorage(dirPath)
 		if err != nil {
-			cmd.PrintErrf("Unable to load app from JSON: %s", err)
+			cmd.PrintErrf("Unable to create directory storage: %s", err)
+			os.Exit(1)
+		}
+
+		app, err := ds.GetByServerName(serverName)
+		if err != nil {
+			cmd.PrintErrf("Unable to get app: %s", err)
 			os.Exit(1)
 		}
 

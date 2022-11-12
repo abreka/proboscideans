@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"os"
 
+	"github.com/abreka/proboscideans/accounts"
+
 	"github.com/abreka/proboscideans/streaming"
 	"github.com/spf13/cobra"
 )
@@ -14,7 +16,13 @@ var streamDistributedCmd = &cobra.Command{
 	Short: "stream events from multiple instances",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		mux, err := streaming.NewMuxFromCredentialsDir(args[0])
+		ds, err := accounts.NewDirectoryStorage(args[0])
+		if err != nil {
+			cmd.PrintErrf("Unable to create directory storage: %s", err)
+			os.Exit(1)
+		}
+
+		mux, err := streaming.NewMuxFromCredentialsDir(ds)
 		if err != nil {
 			cmd.PrintErrf("Unable to create mux: %s", err)
 			os.Exit(1)
