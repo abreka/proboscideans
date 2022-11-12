@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
+	"time"
 
 	"github.com/abreka/proboscideans/accounts"
 
@@ -16,6 +19,17 @@ var streamDistributedCmd = &cobra.Command{
 	Short: "stream events from multiple instances",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		// TODO: make this not stupid
+		// open a gzip file for writing.
+		fp, err := os.Create(fmt.Sprintf("stream-%d.json.gz", time.Now().Unix()))
+		if err != nil {
+			cmd.PrintErrf("error opening file: %v", err)
+			os.Exit(1)
+		}
+		defer fp.Close()
+		gzWriter := gzip.NewWriter(fp)
+		defer gzWriter.Close()
+
 		ds, err := accounts.NewDirectoryStorage(args[0])
 		if err != nil {
 			cmd.PrintErrf("Unable to create directory storage: %s\n", err)
@@ -42,13 +56,20 @@ var streamDistributedCmd = &cobra.Command{
 						os.Exit(1)
 					}
 					cmd.Println(string(errJson))
+
 				case event := <-events:
 					eventJson, err := json.Marshal(event)
 					if err != nil {
 						cmd.PrintErrf("Unable to marshal event: %s\n", err)
 						os.Exit(1)
 					}
-					cmd.Println(string(eventJson))
+					asString := string(eventJson)
+					// TODO: figure out what these are (keep alives?)
+					if asString != "{}" {
+						eventJson = append(eventJson, []byte("\n")...)
+						cmd.Print(string(eventJson))
+						gzWriter.Write(eventJson)
+					}
 				}
 			}
 		}()
