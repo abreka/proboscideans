@@ -22,7 +22,8 @@ func init() {
 
 	// Add subcommands
 	rootCmd.AddCommand(registerCmd)
-	rootCmd.AddCommand(streamCmd)
+	rootCmd.AddCommand(streamInstanceCmd)
+	rootCmd.AddCommand(streamDistributedCmd)
 
 	// Add flags
 	initRegisterCmd()
