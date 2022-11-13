@@ -3,6 +3,7 @@ package streaming
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -43,27 +44,46 @@ type StreamError struct {
 	Err    error  `json:"error"`
 }
 
-func (m *Mux) StreamPublic(ctx context.Context, isLocal bool) (<-chan mastodon.Event, <-chan StreamError) {
+func (m *Mux) StreamPublic(ctx context.Context, isLocal bool) (<-chan mastodon.Event, <-chan *StreamError) {
 	ch := make(chan mastodon.Event)
-	errCh := make(chan StreamError)
+	errCh := make(chan *StreamError)
 
 	// For each client, start a goroutine that streams public events
 	// and sends them to the channel.
 	for serverName, client := range m.clients {
-		go func(serverName string, client *mastodon.Client) {
-			// TODO add resuming and max retries
-			stream, err := client.StreamingPublic(ctx, isLocal)
-			if err != nil {
-				errCh <- StreamError{Server: client.Config.Server, Err: err}
-			}
-
-			for event := range stream {
-				ch <- event
-			}
-		}(serverName, client)
+		// TODO: client has a Config.Server field
+		// TODO: better error handling and retries. right now this just dies which
+		// is good for not hammering but bad for working
+		go streamPublicSafely(ctx, serverName, client, isLocal, ch, errCh)
 	}
 
 	return ch, errCh
+}
+
+func streamPublicSafely(ctx context.Context, serverName string, client *mastodon.Client, isLocal bool, ch chan<- mastodon.Event, errCh chan<- *StreamError) {
+	// TODO: this is a kludge to work around the fact that the client
+	// will keep hammering on an error in a tight loop.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	stream, err := client.StreamingPublic(ctx, isLocal)
+	if err != nil {
+		errCh <- &StreamError{Server: serverName, Err: err}
+		return
+	}
+
+	for event := range stream {
+		switch event := event.(type) {
+		case *mastodon.ErrorEvent:
+			errCh <- &StreamError{
+				Server: serverName,
+				Err:    errors.New(event.Error()),
+			}
+			return
+		default:
+			ch <- event
+		}
+	}
 }
 
 func ServerURIFromAppAuthURI(app *mastodon.Application) (string, error) {

@@ -2,9 +2,10 @@ package accounts
 
 import (
 	"context"
-	"github.com/mattn/go-mastodon"
 	"sync"
 	"time"
+
+	"github.com/mattn/go-mastodon"
 )
 
 type PeersOf struct {

@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/abreka/proboscideans/accounts"
-	"github.com/spf13/cobra"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/abreka/proboscideans/accounts"
+	"github.com/spf13/cobra"
 )
 
 func initRegisterAllCmd() {

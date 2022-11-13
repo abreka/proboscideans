@@ -68,7 +68,11 @@ var streamDistributedCmd = &cobra.Command{
 					if asString != "{}" {
 						eventJson = append(eventJson, []byte("\n")...)
 						cmd.Print(string(eventJson))
-						gzWriter.Write(eventJson)
+						_, err = gzWriter.Write(eventJson)
+						if err != nil {
+							cmd.PrintErrf("Unable to write to file: %s\n", err)
+							os.Exit(1)
+						}
 					}
 				}
 			}
